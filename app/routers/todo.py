@@ -1,5 +1,4 @@
-from typing import List
-
+from typing import Any
 from fastapi import status, HTTPException, APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
@@ -8,14 +7,13 @@ from app.database import get_db
 
 router = APIRouter(prefix="/api/v1/todo", tags=['Todo'])
 
-
-@router.get("/", response_model=List[schemas.TodoItem])
+@router.get("/")
 def get_todos(db: Session = Depends(get_db), skip: int = 0, limit: int = 100):
     todos = db.query(models.Todo).offset(skip).limit(limit).all()
-    return todos
+    return {"data": todos}
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.TodoItem)
+@router.post("/", status_code=status.HTTP_201_CREATED)
 def create_todo(todo: schemas.TodoItemBase, db: Session = Depends(get_db)):
     new_todo_item = models.Todo(**todo.dict())
 
@@ -23,10 +21,10 @@ def create_todo(todo: schemas.TodoItemBase, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_todo_item)
 
-    return new_todo_item
+    return {"data": new_todo_item}
 
 
-@router.get("/{id}", response_model=schemas.TodoItem)
+@router.get("/{id}")
 def get_todo(id: int, db: Session = Depends(get_db)):
     todo = db.query(models.Todo).filter(models.Todo.id == id).first()
 
@@ -35,11 +33,11 @@ def get_todo(id: int, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Todo with id: {id} was not found")
 
-    return todo
+    return {"data": todo}
 
 
-@router.put("/{id}", response_model=schemas.TodoItem)
-def update_todo(id: int, updated_todo: schemas.TodoItemBase, db: Session = Depends(get_db)):
+@router.put("/{id}")
+def update_todo(id: int, updated_todo: schemas.TodoItemUpdate, db: Session = Depends(get_db)):
     todo_query = db.query(models.Todo).filter(models.Todo.id == id)
     todo = todo_query.first()
 
@@ -48,11 +46,12 @@ def update_todo(id: int, updated_todo: schemas.TodoItemBase, db: Session = Depen
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Todo with id: {id} was not found")
 
-    todo_query.update(updated_todo.dict(), synchronize_session=False)
+    todo_query.update(updated_todo.dict(exclude_unset=True), synchronize_session=False)
 
     db.commit()
+    db.refresh(todo)
 
-    return todo
+    return {"data": todo}
 
 
 @router.delete("/{id}")

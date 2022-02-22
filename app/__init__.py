@@ -17,13 +17,3 @@ app.add_middleware(
 
 app.include_router(todo.router)
 models.Base.metadata.create_all(bind=engine)
-
-
-@app.get("/")
-def root():
-    return dict(message="Hello World")
-
-
-@app.post("/")
-def root_post():
-    return
